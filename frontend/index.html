@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Minesweeper</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="status">Status: <span id="status-text">—</span></div>
+    <div class="counters">
+      Mines left: <span id="mines-left">—</span>
+      · Moves: <span id="moves-count">0</span>
+    </div>
+    <div class="controls">
+      <label>W <input id="w" type="number" min="2" max="100" value="10"></label>
+      <label>H <input id="h" type="number" min="2" max="100" value="10"></label>
+      <label>M <input id="m" type="number" min="1" value="15"></label>
+      <button id="new-game">New Game</button>
+    </div>
+  </div>
+
+  <div id="board" class="board"></div>
+
+  <script src="/main.js"></script>
+</body>
+</html>

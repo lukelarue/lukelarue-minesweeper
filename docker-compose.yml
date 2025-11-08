@@ -1,0 +1,20 @@
+version: "3.9"
+services:
+  emulator:
+    image: google/cloud-sdk:slim
+    command: gcloud beta emulators firestore start --host-port=0.0.0.0:8080 --quiet
+    ports:
+      - "8080:8080"
+    environment:
+      - CLOUDSDK_CORE_DISABLE_PROMPTS=1
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - FIRESTORE_EMULATOR_HOST=emulator:8080
+      - GOOGLE_CLOUD_PROJECT=fake-minesweeper-local
+      - ALLOW_ANON=1
+      - DEFAULT_USER_ID=demo
+    depends_on:
+      - emulator

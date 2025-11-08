@@ -1,0 +1,9 @@
+body { font-family: system-ui, Arial, sans-serif; margin: 0; background: #111; color: #eee; }
+.topbar { display: flex; align-items: center; gap: 16px; padding: 10px 14px; background: #222; position: sticky; top: 0; }
+.topbar .controls input { width: 64px; }
+.board { display: grid; gap: 2px; padding: 12px; justify-content: center; }
+.tile { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: #333; cursor: pointer; user-select: none; border-radius: 4px; }
+.tile.revealed { background: #444; }
+.tile.flag { background: #6b1; }
+.tile.mine { background: #a11; }
+.tile:hover { outline: 1px solid #777; }
