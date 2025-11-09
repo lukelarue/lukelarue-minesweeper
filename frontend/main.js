@@ -1,4 +1,5 @@
 const API_BASE = window.API_BASE || "/api/minesweeper";
+const IMG_BASE = "/assets/tiles";
 const USER_ID = localStorage.getItem("ms_user") || "demo";
 localStorage.setItem("ms_user", USER_ID);
 
@@ -31,6 +32,8 @@ function render(data) {
   const minesLeft = (num_mines ?? 0) - (flags_total ?? 0);
   minesLeftEl.textContent = minesLeft;
 
+  const last = data.last_move || null;
+
   boardEl.style.gridTemplateColumns = `repeat(${board_width}, 28px)`;
   boardEl.innerHTML = "";
   for (let r = 0; r < board_height; r++) {
@@ -41,18 +44,25 @@ function render(data) {
       t.dataset.r = r;
       t.dataset.c = c;
 
+      let img = null;
       if (v === "H") {
-        t.textContent = "";
+        img = "unrevealed.png";
       } else if (v === "F") {
-        t.classList.add("flag");
-        t.textContent = "⚑";
+        img = "flag.png";
       } else if (v === "M") {
-        t.classList.add("mine");
-        t.textContent = "💣";
+        if (last && last.hit_mine && last.row === r && last.col === c) {
+          img = "boom.png";
+        } else {
+          img = "bomb.png";
+        }
       } else {
+        // revealed number 0-8
+        img = `${v}.png`;
         t.classList.add("revealed");
-        t.textContent = v === "0" ? "" : v;
       }
+
+      t.textContent = "";
+      t.style.backgroundImage = img ? `url('${IMG_BASE}/${img}')` : "";
 
       if (status === "active") {
         t.addEventListener("click", async () => {

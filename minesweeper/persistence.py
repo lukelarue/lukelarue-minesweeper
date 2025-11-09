@@ -103,7 +103,6 @@ class InMemoryPersistence:
     def _append_move(self, user_id: str, game: Dict[str, Any], move: Dict[str, Any]) -> None:
         self._ensure_user(user_id)
         self.moves[user_id].append(move)
-        game["moves_count"] = len(self.moves[user_id])
 
     def reveal(self, user_id: str, row: int, col: int) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         game = self.games.get(user_id)
@@ -139,6 +138,7 @@ class InMemoryPersistence:
         game["status"] = new_state.status
         game["mine_layout"] = new_state.mine_layout
         game["mines_placed"] = new_state.mines_placed
+        game["moves_count"] = new_state.moves_count
         game["updated_at"] = now
         if game.get("first_reveal_at") is None and result.get("cleared_cells", 0) > 0:
             game["first_reveal_at"] = now
@@ -174,6 +174,7 @@ class InMemoryPersistence:
         now = _now()
         game["flag_mask"] = new_state.flag_mask
         game["status"] = new_state.status
+        game["moves_count"] = new_state.moves_count
         game["updated_at"] = now
 
         last_ts = self.moves[user_id][-1]["timestamp"] if self.moves.get(user_id) else game["created_at"]
@@ -309,8 +310,6 @@ class FirestorePersistence:
         seq = int(move["seq"])
         mref = self._moves_ref(user_id).document(_seq_id(seq))
         tx.set(mref, move)
-        gref = self._game_ref(user_id)
-        tx.update(gref, {"moves_count": seq})
 
     def reveal(self, user_id: str, row: int, col: int) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         if firestore is None:
@@ -331,6 +330,7 @@ class FirestorePersistence:
                 "revealed_mask": new_state.revealed_mask,
                 "status": new_state.status,
                 "updated_at": now,
+                "moves_count": new_state.moves_count,
             }
             if game.get("first_reveal_at") is None and result.get("cleared_cells", 0) > 0:
                 update["first_reveal_at"] = now
@@ -344,7 +344,7 @@ class FirestorePersistence:
 
             tx.update(gref, update)
 
-            # Build move doc
+            # Build move doc (use action sequence independent of engine moves_count)
             moves_count = int(game.get("moves_count", 0)) + 1
             last_ts = game.get("updated_at") or game.get("created_at")
             move = {
@@ -365,7 +365,7 @@ class FirestorePersistence:
             # Compose in-memory view for response
             merged = dict(game)
             merged.update(update)
-            merged["moves_count"] = moves_count
+            merged["moves_count"] = new_state.moves_count
             return merged, move
 
         return _tx(self.client.transaction())
@@ -389,6 +389,7 @@ class FirestorePersistence:
                 "flag_mask": new_state.flag_mask,
                 "status": new_state.status,
                 "updated_at": now,
+                "moves_count": new_state.moves_count,
             }
             tx.update(gref, update)
             moves_count = int(game.get("moves_count", 0)) + 1
@@ -410,7 +411,7 @@ class FirestorePersistence:
             self._write_move(tx, user_id, game, move)
             merged = dict(game)
             merged.update(update)
-            merged["moves_count"] = moves_count
+            merged["moves_count"] = new_state.moves_count
             return merged, move
 
         return _tx(self.client.transaction())

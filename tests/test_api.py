@@ -38,6 +38,7 @@ def test_reveal_and_flag_and_abandon():
     s3 = r.json()
     # flags_total is present for convenience
     assert "flags_total" in s3
+    assert s3["moves_count"] == s2["moves_count"]
 
     r = c.post("/api/minesweeper/abandon", headers=headers)
     assert r.status_code == 200
@@ -47,6 +48,21 @@ def test_reveal_and_flag_and_abandon():
     # After abandon, can start a new game
     r = c.post("/api/minesweeper/start", json={"board_width": 4, "board_height": 4, "num_mines": 2}, headers=headers)
     assert r.status_code == 200
+
+
+def test_noop_reveals_do_not_increase_moves():
+    c = make_client()
+    headers = {"X-User-Id": "u5"}
+    c.post("/api/minesweeper/start", json={"board_width": 5, "board_height": 5, "num_mines": 3}, headers=headers)
+    r1 = c.post("/api/minesweeper/reveal", json={"row": 0, "col": 0}, headers=headers)
+    s1 = r1.json()
+    r2 = c.post("/api/minesweeper/reveal", json={"row": 0, "col": 0}, headers=headers)
+    s2 = r2.json()
+    assert s2["moves_count"] == s1["moves_count"]
+    c.post("/api/minesweeper/flag", json={"row": 1, "col": 1}, headers=headers)
+    r3 = c.post("/api/minesweeper/reveal", json={"row": 1, "col": 1}, headers=headers)
+    s3 = r3.json()
+    assert s3["moves_count"] == s2["moves_count"]
 
 
 def test_start_boundary_validation_400():

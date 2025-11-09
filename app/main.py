@@ -99,7 +99,19 @@ def create_app(persistence=None) -> FastAPI:
             raise HTTPException(status_code=404, detail="no game")
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        return app.state.persistence.to_client(game) | {"game_id": user_id}
+        resp = app.state.persistence.to_client(game) | {"game_id": user_id}
+        # include minimal last_move info so frontend can highlight the clicked mine
+        if isinstance(_move, dict) and "row" in _move and "col" in _move:
+            try:
+                resp["last_move"] = {
+                    "row": int(_move.get("row")) if _move.get("row") is not None else None,
+                    "col": int(_move.get("col")) if _move.get("col") is not None else None,
+                    "hit_mine": bool(_move.get("hit_mine")),
+                }
+            except Exception:
+                # best-effort; ignore if types are unexpected
+                pass
+        return resp
 
     @app.post(f"{API_BASE}/flag")
     def flag(body: MoveBody, user_id: str = Depends(get_user_id)):

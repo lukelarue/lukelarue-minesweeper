@@ -52,6 +52,7 @@ def test_repeated_reveal_noop():
     s3, res2 = apply_reveal(s2, 0, 0)
     assert res2["cleared_cells"] == 0
     assert s3.revealed_mask == s2.revealed_mask
+    assert s3.moves_count == s2.moves_count
 
 
 def test_flag_toggle_and_no_flag_on_revealed():
@@ -59,12 +60,25 @@ def test_flag_toggle_and_no_flag_on_revealed():
     # toggle flag
     s2, res = apply_flag(s, 0, 0)
     assert res["flags_total"] == 1
+    assert s2.moves_count == s.moves_count
     s3, res = apply_flag(s2, 0, 0)
     assert res["flags_total"] == 0
+    assert s3.moves_count == s2.moves_count
     # reveal then attempt to flag
     s4, _ = apply_reveal(s3, 1, 1)
     s5, res = apply_flag(s4, 1, 1)
     assert res["flags_total"] == 0
+    assert s4.moves_count == s3.moves_count + 1
+    assert s5.moves_count == s4.moves_count
+
+
+def test_reveal_on_flagged_tile_noop_moves():
+    s = generate_new_game(5, 5, 3, rng_seed=4)
+    s1, _ = apply_reveal(s, 0, 0)
+    s2, _ = apply_flag(s1, 1, 1)
+    s3, res = apply_reveal(s2, 1, 1)
+    assert res["cleared_cells"] == 0
+    assert s3.moves_count == s2.moves_count
 
 
 def test_to_client_view_hides_mines_while_active():

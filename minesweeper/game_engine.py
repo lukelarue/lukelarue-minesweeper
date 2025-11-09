@@ -191,7 +191,7 @@ def apply_flag(s: GameState, row: int, col: int):
     flags = list(s.flag_mask)
     flags[i] = "0" if flags[i] == "1" else "1"
     new_flags = "".join(flags)
-    ns = replace(s, flag_mask=new_flags, moves_count=s.moves_count + 1)
+    ns = replace(s, flag_mask=new_flags)
     return ns, {
         "hit_mine": False,
         "cleared_cells": 0,
