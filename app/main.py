@@ -100,7 +100,6 @@ def create_app(persistence=None) -> FastAPI:
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         resp = app.state.persistence.to_client(game) | {"game_id": user_id}
-        # include minimal last_move info so frontend can highlight the clicked mine
         if isinstance(_move, dict) and "row" in _move and "col" in _move:
             try:
                 resp["last_move"] = {
@@ -109,7 +108,6 @@ def create_app(persistence=None) -> FastAPI:
                     "hit_mine": bool(_move.get("hit_mine")),
                 }
             except Exception:
-                # best-effort; ignore if types are unexpected
                 pass
         return resp
 

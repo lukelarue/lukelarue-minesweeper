@@ -49,14 +49,15 @@ function render(data) {
         img = "unrevealed.png";
       } else if (v === "F") {
         img = "flag.png";
+        t.classList.add("flag");
       } else if (v === "M") {
         if (last && last.hit_mine && last.row === r && last.col === c) {
           img = "boom.png";
         } else {
           img = "bomb.png";
         }
+        t.classList.add("mine");
       } else {
-        // revealed number 0-8
         img = `${v}.png`;
         t.classList.add("revealed");
       }
