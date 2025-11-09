@@ -37,6 +37,8 @@ def _to_state(doc: Dict[str, Any]) -> GameState:
         flag_mask=doc["flag_mask"],
         status=doc["status"],
         moves_count=doc.get("moves_count", 0),
+        mines_placed=doc.get("mines_placed", False),
+        rng_seed=doc.get("rng_seed"),
     )
 
 
@@ -88,6 +90,8 @@ class InMemoryPersistence:
             "mine_layout": state.mine_layout,
             "revealed_mask": state.revealed_mask,
             "flag_mask": state.flag_mask,
+            "mines_placed": state.mines_placed,
+            "rng_seed": state.rng_seed,
             "first_reveal_at": None,
             "result_time_ms": None,
             "final_score": None,
@@ -133,6 +137,8 @@ class InMemoryPersistence:
         # update doc
         game["revealed_mask"] = new_state.revealed_mask
         game["status"] = new_state.status
+        game["mine_layout"] = new_state.mine_layout
+        game["mines_placed"] = new_state.mines_placed
         game["updated_at"] = now
         if game.get("first_reveal_at") is None and result.get("cleared_cells", 0) > 0:
             game["first_reveal_at"] = now
@@ -287,6 +293,8 @@ class FirestorePersistence:
                 "mine_layout": state.mine_layout,
                 "revealed_mask": state.revealed_mask,
                 "flag_mask": state.flag_mask,
+                "mines_placed": state.mines_placed,
+                "rng_seed": state.rng_seed,
                 "first_reveal_at": None,
                 "result_time_ms": None,
                 "final_score": None,
@@ -330,6 +338,9 @@ class FirestorePersistence:
                 update["finished_at"] = now
                 if game.get("first_reveal_at"):
                     update["result_time_ms"] = int((now - game["first_reveal_at"]).total_seconds() * 1000)
+            # reflect mines placement changes
+            update["mine_layout"] = new_state.mine_layout
+            update["mines_placed"] = new_state.mines_placed
 
             tx.update(gref, update)
 

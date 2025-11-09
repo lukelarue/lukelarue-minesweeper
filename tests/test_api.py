@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from app.main import create_app
 from minesweeper.persistence import InMemoryPersistence
+import pytest
 
 
 def make_client():
@@ -46,3 +47,21 @@ def test_reveal_and_flag_and_abandon():
     # After abandon, can start a new game
     r = c.post("/api/minesweeper/start", json={"board_width": 4, "board_height": 4, "num_mines": 2}, headers=headers)
     assert r.status_code == 200
+
+
+def test_start_boundary_validation_400():
+    c = make_client()
+    headers = {"X-User-Id": "u3"}
+    r = c.post("/api/minesweeper/start", json={"board_width": 3, "board_height": 3, "num_mines": 6}, headers=headers)
+    assert r.status_code == 400
+    assert "too_many_mines_for_board" in r.text
+
+
+def test_reveal_insufficient_space_for_mines_400():
+    c = make_client()
+    headers = {"X-User-Id": "u4"}
+    r = c.post("/api/minesweeper/start", json={"board_width": 3, "board_height": 3, "num_mines": 5}, headers=headers)
+    assert r.status_code == 200
+    r2 = c.post("/api/minesweeper/reveal", json={"row": 1, "col": 1}, headers=headers)
+    assert r2.status_code == 400
+    assert "insufficient_space_for_mines" in r2.text

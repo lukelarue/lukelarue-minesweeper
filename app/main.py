@@ -77,7 +77,8 @@ def create_app(persistence=None) -> FastAPI:
         except ValueError as e:
             if str(e) == "active_game_exists":
                 raise HTTPException(status_code=409, detail="active game exists")
-            raise
+            # Treat other ValueErrors as bad requests (validation/boundary errors)
+            raise HTTPException(status_code=400, detail=str(e))
         return app.state.persistence.to_client(doc) | {"game_id": user_id}
 
     @app.get(f"{API_BASE}/state")
