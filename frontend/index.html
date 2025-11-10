@@ -14,14 +14,27 @@
       · Moves: <span id="moves-count">0</span>
     </div>
     <div class="controls">
-      <label>W <input id="w" type="number" min="2" max="100" value="10"></label>
-      <label>H <input id="h" type="number" min="2" max="100" value="10"></label>
-      <label>M <input id="m" type="number" min="1" value="15"></label>
-      <button id="new-game">New Game</button>
+      <button id="abort-game" class="abort">Abort Game</button>
     </div>
   </div>
 
   <div id="board" class="board"></div>
+
+  <div id="overlay" class="overlay hidden">
+    <div class="overlay-card">
+      <h2>Start a New Game</h2>
+      <div class="form">
+        <label for="width-input">Width</label>
+        <input id="width-input" type="number" min="2" max="100" value="10" />
+        <label for="height-input">Height</label>
+        <input id="height-input" type="number" min="2" max="100" value="10" />
+        <label for="mines-input">Mines</label>
+        <input id="mines-input" type="number" min="1" value="15" />
+        <button id="start-game" class="primary">Start Game</button>
+        <div id="overlay-error" class="error"></div>
+      </div>
+    </div>
+  </div>
 
   <script src="/main.js"></script>
 </body>

@@ -8,6 +8,13 @@ const boardEl = el("board");
 const statusText = el("status-text");
 const minesLeftEl = el("mines-left");
 const movesCountEl = el("moves-count");
+const overlay = el("overlay");
+const overlayError = el("overlay-error");
+const widthInput = el("width-input");
+const heightInput = el("height-input");
+const minesInput = el("mines-input");
+const startBtn = el("start-game");
+const abortBtn = el("abort-game");
 
 async function api(path, method = "GET", body) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -88,6 +95,10 @@ function render(data) {
       boardEl.appendChild(t);
     }
   }
+  if (abortBtn) {
+    abortBtn.disabled = status !== "active";
+  }
+  setOverlayVisible(status !== "active");
 }
 
 async function load() {
@@ -95,28 +106,58 @@ async function load() {
     const s = await api("/state");
     render(s);
   } catch (e) {
-    // if no active game, create one
-    await startNew();
-  }
-}
-
-async function startNew() {
-  const w = parseInt(el("w").value, 10) || 10;
-  const h = parseInt(el("h").value, 10) || 10;
-  const m = parseInt(el("m").value, 10) || 10;
-  try {
-    const s = await api("/start", "POST", { board_width: w, board_height: h, num_mines: m });
-    render(s);
-  } catch (e) {
-    if (String(e).startsWith("Error: 409")) {
-      const s = await api("/state");
-      render(s);
+    if (String(e).startsWith("Error: 404")) {
+      setOverlayVisible(true);
     } else {
       console.error(e);
     }
   }
 }
 
-el("new-game").addEventListener("click", startNew);
+async function startNew() {
+  const w = parseInt(widthInput.value, 10) || 10;
+  const h = parseInt(heightInput.value, 10) || 10;
+  const m = parseInt(minesInput.value, 10) || 10;
+  try {
+    const s = await api("/start", "POST", { board_width: w, board_height: h, num_mines: m });
+    render(s);
+    setOverlayVisible(false);
+    overlayError.textContent = "";
+  } catch (e) {
+    if (String(e).startsWith("Error: 409")) {
+      const s = await api("/state");
+      render(s);
+      setOverlayVisible(false);
+      overlayError.textContent = "";
+    } else {
+      overlayError.textContent = String(e).replace(/^Error: \d+:\s*/, "");
+      console.error(e);
+    }
+  }
+}
+
+function setOverlayVisible(show) {
+  if (!overlay) return;
+  if (show) {
+    overlay.classList.remove("hidden");
+    document.body.classList.add("modal-open");
+  } else {
+    overlay.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+  }
+}
+
+if (startBtn) startBtn.addEventListener("click", startNew);
+if (abortBtn) abortBtn.addEventListener("click", async () => {
+  abortBtn.disabled = true;
+  try {
+    const s = await api("/abandon", "POST");
+    render(s);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    abortBtn.disabled = false;
+  }
+});
 
 load();

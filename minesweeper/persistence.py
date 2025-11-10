@@ -95,6 +95,7 @@ class InMemoryPersistence:
             "first_reveal_at": None,
             "result_time_ms": None,
             "final_score": None,
+            "end_result": None,
         }
         self.games[user_id] = doc
         self.moves[user_id] = []
@@ -146,6 +147,7 @@ class InMemoryPersistence:
             game["finished_at"] = now
             if game.get("first_reveal_at"):
                 game["result_time_ms"] = int((now - game["first_reveal_at"]).total_seconds() * 1000)
+            game["end_result"] = "win" if new_state.status == "won" else "lose"
 
         last_ts = self.moves[user_id][-1]["timestamp"] if self.moves.get(user_id) else game["created_at"]
         move = {
@@ -164,6 +166,35 @@ class InMemoryPersistence:
         }
         self._append_move(user_id, game, move)
         return game, move
+
+    def mark_error(self, user_id: str, reason: str) -> Dict[str, Any]:
+        game = self.games.get(user_id)
+        if not game:
+            raise KeyError("game_not_found")
+        now = _now()
+        game["status"] = "error"
+        game["updated_at"] = now
+        if not game.get("finished_at"):
+            game["finished_at"] = now
+        game["end_result"] = "error"
+        last_ts = self.moves[user_id][-1]["timestamp"] if self.moves.get(user_id) else game["created_at"]
+        move = {
+            "seq": (game.get("moves_count", 0) + 1),
+            "action": "error",
+            "row": None,
+            "col": None,
+            "timestamp": now,
+            "hit_mine": False,
+            "cleared_cells": 0,
+            "flags_total": _count_flags(game["flag_mask"]),
+            "revealed_total": _count_revealed(game["revealed_mask"]),
+            "status_after": game["status"],
+            "ms_since_game_start": int((now - (game.get("first_reveal_at") or now)).total_seconds() * 1000) if game.get("first_reveal_at") else None,
+            "ms_since_prev_move": int((now - last_ts).total_seconds() * 1000) if last_ts else None,
+            "error_reason": reason,
+        }
+        self._append_move(user_id, game, move)
+        return game
 
     def flag(self, user_id: str, row: int, col: int) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         game = self.games.get(user_id)
@@ -204,6 +235,7 @@ class InMemoryPersistence:
         game["updated_at"] = now
         if not game.get("finished_at"):
             game["finished_at"] = now
+        game["end_result"] = "abort"
         last_ts = self.moves[user_id][-1]["timestamp"] if self.moves.get(user_id) else game["created_at"]
         move = {
             "seq": (game.get("moves_count", 0) + 1),
@@ -234,6 +266,7 @@ class InMemoryPersistence:
             "flags_total": _count_flags(game["flag_mask"]),
             "revealed_total": _count_revealed(game["revealed_mask"]),
             "num_mines": game["num_mines"],
+            "end_result": game.get("end_result"),
         }
 
 
@@ -299,10 +332,57 @@ class FirestorePersistence:
                 "first_reveal_at": None,
                 "result_time_ms": None,
                 "final_score": None,
+                "end_result": None,
             }
             tx.set(gref, doc)
             # Optionally clear moves: Firestore doesn't support list, so delete all docs in subcollection lazily in client if needed.
             return doc
+
+        return _tx(self.client.transaction())
+
+    def mark_error(self, user_id: str, reason: str) -> Dict[str, Any]:
+        if firestore is None:
+            raise RuntimeError("google-cloud-firestore not available")
+
+        @firestore.transactional  # type: ignore
+        def _tx(tx):
+            gref = self._game_ref(user_id)
+            snap = gref.get(transaction=tx)
+            if not snap.exists:
+                raise KeyError("game_not_found")
+            game = snap.to_dict()
+            assert game is not None
+            now = _now()
+            update = {
+                "status": "error",
+                "updated_at": now,
+                "end_result": "error",
+            }
+            if not game.get("finished_at"):
+                update["finished_at"] = now
+            tx.update(gref, update)
+            moves_count = int(game.get("moves_count", 0)) + 1
+            last_ts = game.get("updated_at") or game.get("created_at")
+            move = {
+                "seq": moves_count,
+                "action": "error",
+                "row": None,
+                "col": None,
+                "timestamp": now,
+                "hit_mine": False,
+                "cleared_cells": 0,
+                "flags_total": _count_flags(game["flag_mask"]),
+                "revealed_total": _count_revealed(game["revealed_mask"]),
+                "status_after": "error",
+                "ms_since_game_start": int((now - (game.get("first_reveal_at") or now)).total_seconds() * 1000) if game.get("first_reveal_at") else None,
+                "ms_since_prev_move": int((now - last_ts).total_seconds() * 1000) if last_ts else None,
+                "error_reason": reason,
+            }
+            self._write_move(tx, user_id, game, move)
+            merged = dict(game)
+            merged.update(update)
+            merged["moves_count"] = moves_count
+            return merged
 
         return _tx(self.client.transaction())
 
@@ -338,6 +418,7 @@ class FirestorePersistence:
                 update["finished_at"] = now
                 if game.get("first_reveal_at"):
                     update["result_time_ms"] = int((now - game["first_reveal_at"]).total_seconds() * 1000)
+                update["end_result"] = "win" if new_state.status == "won" else "lose"
             # reflect mines placement changes
             update["mine_layout"] = new_state.mine_layout
             update["mines_placed"] = new_state.mines_placed
@@ -435,6 +516,7 @@ class FirestorePersistence:
             }
             if not game.get("finished_at"):
                 update["finished_at"] = now
+            update["end_result"] = "abort"
             tx.update(gref, update)
             moves_count = int(game.get("moves_count", 0)) + 1
             last_ts = game.get("updated_at") or game.get("created_at")
@@ -472,4 +554,5 @@ class FirestorePersistence:
             "flags_total": _count_flags(game["flag_mask"]),
             "revealed_total": _count_revealed(game["revealed_mask"]),
             "num_mines": game["num_mines"],
+            "end_result": game.get("end_result"),
         }

@@ -98,6 +98,12 @@ def create_app(persistence=None) -> FastAPI:
         except KeyError:
             raise HTTPException(status_code=404, detail="no game")
         except ValueError as e:
+            # Capture certain engine errors as final end_result=error
+            if str(e) == "insufficient_space_for_mines":
+                try:
+                    app.state.persistence.mark_error(user_id, str(e))
+                except Exception:
+                    pass
             raise HTTPException(status_code=400, detail=str(e))
         resp = app.state.persistence.to_client(game) | {"game_id": user_id}
         if isinstance(_move, dict) and "row" in _move and "col" in _move:

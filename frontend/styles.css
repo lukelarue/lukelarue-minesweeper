@@ -7,3 +7,15 @@ body { font-family: system-ui, Arial, sans-serif; margin: 0; background: #111; c
 .tile.flag { background-color: #6b1; }
 .tile.mine { background-color: #a11; }
 .tile:hover { outline: 1px solid #777; }
+
+.hidden { display: none; }
+.overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.4); backdrop-filter: blur(6px); z-index: 1000; padding: 16px; }
+.overlay-card { background: #1b1b1b; border-radius: 12px; padding: 20px; width: min(420px, 90vw); box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+.overlay-card h2 { margin: 0 0 12px 0; font-weight: 600; font-size: 20px; }
+.overlay-card .form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; }
+.overlay-card label { font-size: 14px; color: #ccc; align-self: end; }
+.overlay-card input { padding: 8px 10px; border: 1px solid #333; border-radius: 8px; background: #0f0f0f; color: #eee; }
+#start-game.primary { grid-column: span 2; padding: 10px 12px; border-radius: 8px; background: #4f46e5; color: #fff; border: none; cursor: pointer; }
+.error { grid-column: span 2; color: #f87171; min-height: 18px; font-size: 12px; }
+.topbar .controls .abort { background: #ef4444; color: #fff; border: none; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+body.modal-open .topbar, body.modal-open #board { filter: blur(4px); pointer-events: none; user-select: none; }
