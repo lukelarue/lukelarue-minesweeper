@@ -15,6 +15,8 @@ const heightInput = el("height-input");
 const minesInput = el("mines-input");
 const startBtn = el("start-game");
 const abortBtn = el("abort-game");
+const resultBanner = el("result-banner");
+const continueBtn = el("continue-game");
 
 async function api(path, method = "GET", body) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -98,7 +100,31 @@ function render(data) {
   if (abortBtn) {
     abortBtn.disabled = status !== "active";
   }
-  setOverlayVisible(status !== "active");
+  // Post-game UI for won/lost: keep board visible, show banner and Continue
+  const postGame = status === "won" || status === "lost";
+  if (resultBanner) {
+    if (status === "won") {
+      resultBanner.textContent = "Victory";
+      resultBanner.classList.remove("hidden");
+      resultBanner.classList.add("win");
+      resultBanner.classList.remove("lose");
+    } else if (status === "lost") {
+      resultBanner.textContent = "You lose";
+      resultBanner.classList.remove("hidden");
+      resultBanner.classList.add("lose");
+      resultBanner.classList.remove("win");
+    } else {
+      resultBanner.textContent = "";
+      resultBanner.classList.add("hidden");
+      resultBanner.classList.remove("win");
+      resultBanner.classList.remove("lose");
+    }
+  }
+  if (continueBtn) {
+    continueBtn.classList.toggle("hidden", !postGame);
+  }
+  // Only show overlay for abandoned or error; not for normal end states
+  setOverlayVisible(status === "abandoned" || status === "error");
 }
 
 async function load() {
@@ -158,6 +184,11 @@ if (abortBtn) abortBtn.addEventListener("click", async () => {
   } finally {
     abortBtn.disabled = false;
   }
+});
+
+if (continueBtn) continueBtn.addEventListener("click", () => {
+  if (overlayError) overlayError.textContent = "";
+  setOverlayVisible(true);
 });
 
 load();
