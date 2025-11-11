@@ -10,16 +10,56 @@ Python 3.11+ FastAPI service implementing a Minesweeper game with a minimal ifra
 - Minimal frontend (no framework) you can embed via `<iframe>`
 - Tests for engine and API using pytest
 
-## Quickstart (Local, without emulator)
+## Quickstart (Local, Firestore emulator)
 
 ```bash
 python -m venv .venv
-. .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+# Windows PowerShell
+. .venv/Scripts/Activate.ps1
+# Windows Cmd
+.venv\Scripts\activate.bat
+# macOS/Linux
+source .venv/bin/activate
+
 pip install -r requirements.txt
-set USE_INMEMORY=1  # PowerShell: $env:USE_INMEMORY=1
+```
+
+Copy `.env.local.example` to `.env.local`, or create it with:
+
+```makefile
+USE_INMEMORY=0
+FIRESTORE_EMULATOR_HOST=localhost:8080
+GOOGLE_CLOUD_PROJECT=fake-minesweeper-local
+ALLOW_ANON=1
+DEFAULT_USER_ID=local-demo
+```
+
+Start the Firestore emulator (choose one):
+
+```bash
+# Option A: Docker Compose (starts only the emulator)
+docker compose up -d emulator
+
+# Option B: gcloud (run in a separate terminal)
+gcloud beta emulators firestore start --host-port=localhost:8080
+```
+
+Run the server in another terminal:
+
+```bash
 uvicorn app.main:app --reload
 # Open http://localhost:8000
 ```
+
+On startup you will see a log line indicating which persistence is active, for example:
+
+```bash
+[minesweeper] Persistence=FirestorePersistence USE_INMEMORY=0 FIRESTORE_EMULATOR_HOST=localhost:8080 GOOGLE_CLOUD_PROJECT=fake-minesweeper-local
+```
+
+### About `.env.local` files
+
+`.env.local` files are used to store environment variables for local development. They are not committed to the repository and are ignored by Git. This allows you to keep your local environment settings separate from the production environment.
 
 ## Local Dev with Firestore Emulator
 

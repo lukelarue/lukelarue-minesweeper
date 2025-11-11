@@ -45,6 +45,8 @@ htmlcov/
 .env
 .env.*
 .env.local
+!.env.local.example
+!env.prod.example
 .venv/
 venv/
 ENV/
@@ -71,3 +73,4 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.env.local

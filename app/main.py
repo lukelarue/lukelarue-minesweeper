@@ -1,4 +1,5 @@
 import os
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -54,6 +55,19 @@ def create_app(persistence=None) -> FastAPI:
     )
 
     app.state.persistence = persistence or choose_persistence()
+
+    @app.on_event("startup")
+    async def _log_persistence():
+        try:
+            klass = app.state.persistence.__class__.__name__
+        except Exception:
+            klass = str(type(app.state.persistence))
+        use_inmem = os.getenv("USE_INMEMORY", "0").lower() in ("1", "true", "yes")
+        emulator = os.getenv("FIRESTORE_EMULATOR_HOST")
+        project = os.getenv("GOOGLE_CLOUD_PROJECT")
+        logging.getLogger("uvicorn.error").info(
+            f"[minesweeper] Persistence={klass} USE_INMEMORY={int(use_inmem)} FIRESTORE_EMULATOR_HOST={emulator or '-'} GOOGLE_CLOUD_PROJECT={project or '-'}"
+        )
 
     def get_user_id(req: Request) -> str:
         uid = req.headers.get("X-User-Id")
