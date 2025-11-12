@@ -72,6 +72,29 @@ docker compose up --build
 
 If the emulator image fails due to missing components, run Option B.
 
+## Unified Local Dev with lukelaruecom (Windows)
+
+If you also have the website monorepo checked out as a sibling folder (`../lukelaruecom`), you can run the entire stack (web, login-api, chat-api, Firestore emulator, and this Minesweeper service) with one command:
+
+1. From `../lukelaruecom`:
+   ```bash
+   npm install
+   npm run dev:stack:all:win
+   ```
+2. Open the website at http://localhost:5173 → Lobby → Minesweeper loads in an iframe from http://localhost:8000.
+
+This unified command:
+
+- Starts a shared Firestore emulator at 127.0.0.1:8080 (UI at 127.0.0.1:4001)
+- Runs login-api (fake Google auth), chat-api, and the web app
+- Starts this Minesweeper service on port 8000 with:
+  - `USE_INMEMORY=0`
+  - `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080`
+  - `GOOGLE_CLOUD_PROJECT=demo-firestore`
+  - `ALLOW_ANON=1`, `DEFAULT_USER_ID=local-demo`
+
+The unified script auto-creates a local Python 3.11 virtualenv (`.venv`) and installs `requirements.txt` if missing.
+
 ### Option B: Run Emulator with gcloud locally
 
 1) Install the Google Cloud SDK and components.
@@ -160,6 +183,12 @@ On pushes to `main`, `.github/workflows/image-publish.yml`:
 
 - In the website repo, set `VITE_MINESWEEPER_URL` (repository variable) to the Cloud Run URL output by Terraform.
 - The website build picks it up and the lobby iframe will point to that URL.
+
+For local development with the unified command, the website's `.env` includes:
+
+```env
+VITE_MINESWEEPER_URL=http://localhost:8000
+```
 
 ## Project Structure
 
