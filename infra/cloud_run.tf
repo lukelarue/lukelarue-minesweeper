@@ -8,10 +8,10 @@ locals {
   image = "${var.artifact_registry_location}-docker.pkg.dev/${var.project_id}/minesweeper/minesweeper:${var.image_tag}"
 }
 
-/*
 resource "google_cloud_run_service" "minesweeper" {
   name     = "minesweeper"
   location = var.cloud_run_location
+  autogenerate_revision_name = true
 
   template {
     metadata {
@@ -73,4 +73,3 @@ output "minesweeper_service_url" {
   description = "Cloud Run URL for the Minesweeper service"
   value       = google_cloud_run_service.minesweeper.status[0].url
 }
-*/
