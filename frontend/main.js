@@ -17,6 +17,19 @@ const startBtn = el("start-game");
 const abortBtn = el("abort-game");
 const resultBanner = el("result-banner");
 const continueBtn = el("continue-game");
+const MAX_DIM = 40;
+
+function validateDims() {
+  const w = parseInt(widthInput.value, 10) || 0;
+  const h = parseInt(heightInput.value, 10) || 0;
+  if (w > MAX_DIM || h > MAX_DIM) {
+    overlayError.textContent = `Max board size is ${MAX_DIM}×${MAX_DIM}. Reduce width/height.`;
+    if (startBtn) startBtn.disabled = true;
+  } else {
+    overlayError.textContent = "";
+    if (startBtn) startBtn.disabled = false;
+  }
+}
 
 async function api(path, method = "GET", body) {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -144,6 +157,10 @@ async function startNew() {
   const w = parseInt(widthInput.value, 10) || 10;
   const h = parseInt(heightInput.value, 10) || 10;
   const m = parseInt(minesInput.value, 10) || 10;
+  if (w > MAX_DIM || h > MAX_DIM) {
+    overlayError.textContent = `Max board size is ${MAX_DIM}×${MAX_DIM}. You entered ${w}×${h}.`;
+    return;
+  }
   try {
     const s = await api("/start", "POST", { board_width: w, board_height: h, num_mines: m });
     render(s);
@@ -174,6 +191,9 @@ function setOverlayVisible(show) {
 }
 
 if (startBtn) startBtn.addEventListener("click", startNew);
+if (widthInput) widthInput.addEventListener("input", validateDims);
+if (heightInput) heightInput.addEventListener("input", validateDims);
+validateDims();
 if (abortBtn) abortBtn.addEventListener("click", async () => {
   abortBtn.disabled = true;
   try {

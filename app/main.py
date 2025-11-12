@@ -31,8 +31,8 @@ def choose_persistence():
 
 
 class StartBody(BaseModel):
-    board_width: int = Field(..., ge=2, le=100)
-    board_height: int = Field(..., ge=2, le=100)
+    board_width: int = Field(..., ge=2, le=40)
+    board_height: int = Field(..., ge=2, le=40)
     num_mines: int = Field(..., ge=1)
 
 
