@@ -61,7 +61,7 @@ jobs:
 
       - name: Run tests inside Docker image with Firestore emulator
         run: |
-          npx firebase emulators:exec --only firestore "docker run --rm --network host -e FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 -e GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID:-local-dev} minesweeper:ci pytest -q"
+          npx --yes firebase-tools@latest emulators:exec --only firestore "docker run --rm --network host -e FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 -e GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID:-local-dev} minesweeper:ci pytest -q"
 
   build-and-deploy:
     needs: test
