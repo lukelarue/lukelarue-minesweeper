@@ -5,7 +5,10 @@ on:
     branches:
       - main
     paths:
-      - '**/*'
+      - 'app/**'
+      - 'minesweeper/**'
+      - 'Dockerfile'
+      - 'requirements.txt'
       - '.github/workflows/image-publish.yml'
   workflow_dispatch:
 
@@ -36,6 +39,14 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Debug env (non-secret)
+        run: |
+          echo "GCP_PROJECT_ID=${GCP_PROJECT_ID}"
+          echo "GCP_WORKLOAD_IDENTITY_PROVIDER=${GCP_WORKLOAD_IDENTITY_PROVIDER}"
+          echo "GCP_DEPLOY_SA_EMAIL=${GCP_DEPLOY_SA_EMAIL}"
+          echo "CLOUD_RUN_REGION=${CLOUD_RUN_REGION}"
+          echo "ARTIFACT_REGISTRY_HOST=${ARTIFACT_REGISTRY_HOST:-<empty>}"
 
       - id: auth
         name: Authenticate to Google Cloud
