@@ -24,7 +24,47 @@ env:
   CLOUD_RUN_REGION: ${{ vars.CLOUD_RUN_REGION }}
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ruff==0.6.8
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Run unit tests
+        run: pytest -q
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build Docker image for tests
+        run: |
+          docker build \
+            -f Dockerfile \
+            -t minesweeper:ci \
+            .
+
+      - name: Run tests inside Docker image with Firestore emulator
+        run: |
+          npx firebase emulators:exec --only firestore "docker run --rm --network host -e FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 -e GOOGLE_CLOUD_PROJECT=${GCP_PROJECT_ID:-local-dev} minesweeper:ci pytest -q"
+
   build-and-deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
