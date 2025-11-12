@@ -1,0 +1,52 @@
+name: Build and Push Minesweeper
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**/*.py'
+      - 'Dockerfile'
+      - 'requirements.txt'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_PROJECT_NUMBER: ${{ vars.GCP_PROJECT_NUMBER }}
+  ARTIFACT_REGION: us-central1
+  REPOSITORY: minesweeper
+  IMAGE_NAME: minesweeper
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-actions/providers/lukelarue-lukelarue-minesweeper
+          service_account: minesweeper-deploy@${{ env.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: 'gke-gcloud-auth-plugin'
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.ARTIFACT_REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push image
+        run: |
+          IMAGE_URI=${{ env.ARTIFACT_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.IMAGE_NAME }}
+          GIT_SHA=${{ github.sha }}
+          docker build -t $IMAGE_URI:$GIT_SHA -t $IMAGE_URI:latest .
+          docker push $IMAGE_URI:$GIT_SHA
+          docker push $IMAGE_URI:latest

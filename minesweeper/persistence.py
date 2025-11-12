@@ -285,7 +285,7 @@ class FirestorePersistence:
             self.client = firestore.Client(project=os.environ.get("GOOGLE_CLOUD_PROJECT"))
 
     def _game_ref(self, user_id: str):
-        return self.client.collection("games").document(user_id)
+        return self.client.collection("minesweeperGames").document(user_id)
 
     def _moves_ref(self, user_id: str):
         return self._game_ref(user_id).collection("moves")

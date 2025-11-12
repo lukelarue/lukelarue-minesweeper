@@ -118,6 +118,49 @@ API tests use the in-memory persistence by constructing the app with `create_app
 - Ensure `GOOGLE_CLOUD_PROJECT` is set and credentials are available to the service account.
 - Do not set `FIRESTORE_EMULATOR_HOST` in production.
 
+### Infra (Terraform)
+
+This repo includes a Terraform package under `infra/` to provision:
+
+- Artifact Registry repository `minesweeper`
+- Cloud Run service `minesweeper` (port 8080)
+- Runtime and Deploy service accounts and roles
+- Workload Identity Federation provider for this repo
+
+Apply:
+
+```bash
+terraform -chdir=infra init
+terraform -chdir=infra apply
+```
+
+Terraform outputs include the Cloud Run URL. Use that for embedding.
+
+### GitHub Variables (this repo)
+
+Set the following in the repository settings → Variables:
+
+- `GCP_PROJECT_ID` = your GCP project id
+- `GCP_WORKLOAD_IDENTITY_PROVIDER` = value from `infra` output `workload_identity_provider_name`
+- `GCP_DEPLOY_SA_EMAIL` = value from `infra` output `minesweeper_deploy_sa_email`
+- `GCP_ARTIFACT_REGISTRY_HOST` = `us-central1-docker.pkg.dev`
+- `CLOUD_RUN_REGION` = `us-central1`
+
+### CI/CD
+
+On pushes to `main`, `.github/workflows/image-publish.yml`:
+
+- Authenticates via WIF
+- Builds and pushes `minesweeper` image to Artifact Registry
+- Deploys a new Cloud Run revision for `minesweeper`
+
+`.github/workflows/tests.yml` runs lint (ruff) and pytest.
+
+### Embedding in lukelaruecom website
+
+- In the website repo, set `VITE_MINESWEEPER_URL` (repository variable) to the Cloud Run URL output by Terraform.
+- The website build picks it up and the lobby iframe will point to that URL.
+
 ## Project Structure
 
 - `minesweeper/` game engine and persistence
