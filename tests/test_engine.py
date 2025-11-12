@@ -1,4 +1,3 @@
-import re
 import pytest
 from minesweeper.game_engine import generate_new_game, apply_reveal, apply_flag, to_client_view, index
 

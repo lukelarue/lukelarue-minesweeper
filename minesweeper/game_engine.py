@@ -126,9 +126,7 @@ def apply_reveal(s: GameState, row: int, col: int):
     ml = s.mine_layout
     rev = list(s.revealed_mask)
     cleared = 0
-    hit = False
     if ml[i] == "M":
-        hit = True
         if rev[i] != "1":
             rev[i] = "1"
             cleared = 1
