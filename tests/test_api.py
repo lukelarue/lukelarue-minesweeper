@@ -80,3 +80,40 @@ def test_reveal_insufficient_space_for_mines_400():
     r2 = c.post("/api/minesweeper/reveal", json={"row": 1, "col": 1}, headers=headers)
     assert r2.status_code == 400
     assert "insufficient_space_for_mines" in r2.text
+
+
+def test_isolation_between_two_users_via_x_user_id():
+    c = make_client()
+    h1 = {"X-User-Id": "user_a"}
+    h2 = {"X-User-Id": "user_b"}
+    # Start for both
+    r1 = c.post("/api/minesweeper/start", json={"board_width": 4, "board_height": 4, "num_mines": 2}, headers=h1)
+    assert r1.status_code == 200
+    r2 = c.post("/api/minesweeper/start", json={"board_width": 4, "board_height": 4, "num_mines": 2}, headers=h2)
+    assert r2.status_code == 200
+    # Make a move as user_a
+    m1 = c.post("/api/minesweeper/reveal", json={"row": 0, "col": 0}, headers=h1)
+    assert m1.status_code == 200
+    s1 = c.get("/api/minesweeper/state", headers=h1).json()
+    s2 = c.get("/api/minesweeper/state", headers=h2).json()
+    # user_a should have at least one move; user_b should remain unaffected
+    assert s1["moves_count"] >= 1
+    assert s2["moves_count"] == 0
+    assert s1["game_id"] != s2["game_id"]
+
+
+def test_isolation_with_google_headers():
+    c = make_client()
+    g1 = {"X-Goog-Authenticated-User-Email": "accounts.google.com:alice@example.com"}
+    g2 = {"X-Goog-Authenticated-User-Email": "accounts.google.com:bob@example.com"}
+    r1 = c.post("/api/minesweeper/start", json={"board_width": 5, "board_height": 5, "num_mines": 5}, headers=g1)
+    assert r1.status_code == 200
+    r2 = c.post("/api/minesweeper/start", json={"board_width": 5, "board_height": 5, "num_mines": 5}, headers=g2)
+    assert r2.status_code == 200
+    # Reveal as alice; bob should not be affected
+    c.post("/api/minesweeper/reveal", json={"row": 0, "col": 0}, headers=g1)
+    s_alice = c.get("/api/minesweeper/state", headers=g1).json()
+    s_bob = c.get("/api/minesweeper/state", headers=g2).json()
+    assert s_alice["moves_count"] >= 1
+    assert s_bob["moves_count"] == 0
+    assert s_alice["game_id"] != s_bob["game_id"]

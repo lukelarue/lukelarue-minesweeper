@@ -68,11 +68,33 @@ def create_app(persistence=None) -> FastAPI:
         )
 
     def get_user_id(req: Request) -> str:
-        uid = req.headers.get("X-User-Id")
-        if uid:
-            return uid
-        allow_anon = os.getenv("ALLOW_ANON", "1").lower() in ("1", "true", "yes")
+        # Detect Cloud Run to set safer defaults in production
+        is_cloud_run = bool(os.getenv("K_SERVICE") or os.getenv("K_REVISION") or os.getenv("K_CONFIGURATION"))
+        trust_x_user_id = os.getenv("TRUST_X_USER_ID", "0" if is_cloud_run else "1").lower() in ("1", "true", "yes")
+        allow_anon = os.getenv("ALLOW_ANON", "0" if is_cloud_run else "1").lower() in ("1", "true", "yes")
         default_uid = os.getenv("DEFAULT_USER_ID", "local-user")
+
+        # 1) Prefer Google/IAP style headers when present (production)
+        iap_email = (
+            req.headers.get("X-Goog-Authenticated-User-Email")
+            or req.headers.get("X-Authenticated-User-Email")
+            or req.headers.get("X-Forwarded-Email")
+        )
+        if iap_email:
+            # Format often: "accounts.google.com:email@example.com"
+            if ":" in iap_email:
+                iap_email = iap_email.split(":", 1)[1]
+            return iap_email
+        forwarded_user = req.headers.get("X-Forwarded-User")
+        if forwarded_user:
+            return forwarded_user
+
+        # 2) Only trust explicit header in dev or if explicitly enabled
+        uid = req.headers.get("X-User-Id")
+        if uid and trust_x_user_id:
+            return uid
+
+        # 3) Dev fallback (only if explicitly allowed)
         if allow_anon:
             return default_uid
         raise HTTPException(status_code=401, detail="missing user id")
