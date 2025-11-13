@@ -73,6 +73,7 @@ def create_app(persistence=None) -> FastAPI:
         trust_x_user_id = os.getenv("TRUST_X_USER_ID", "0" if is_cloud_run else "1").lower() in ("1", "true", "yes")
         allow_anon = os.getenv("ALLOW_ANON", "0" if is_cloud_run else "1").lower() in ("1", "true", "yes")
         default_uid = os.getenv("DEFAULT_USER_ID", "local-user")
+        logger = logging.getLogger("uvicorn.error")
 
         # 1) Prefer Google/IAP style headers when present (production)
         iap_email = (
@@ -84,19 +85,40 @@ def create_app(persistence=None) -> FastAPI:
             # Format often: "accounts.google.com:email@example.com"
             if ":" in iap_email:
                 iap_email = iap_email.split(":", 1)[1]
+            logger.info(
+                f"[minesweeper] get_user_id via=iap_email user_id={iap_email} "
+                f"is_cloud_run={int(is_cloud_run)} trust_x_user_id={int(trust_x_user_id)} allow_anon={int(allow_anon)}"
+            )
             return iap_email
         forwarded_user = req.headers.get("X-Forwarded-User")
         if forwarded_user:
+            logger.info(
+                f"[minesweeper] get_user_id via=forwarded_user user_id={forwarded_user} "
+                f"is_cloud_run={int(is_cloud_run)} trust_x_user_id={int(trust_x_user_id)} allow_anon={int(allow_anon)}"
+            )
             return forwarded_user
 
         # 2) Only trust explicit header in dev or if explicitly enabled
         uid = req.headers.get("X-User-Id")
         if uid and trust_x_user_id:
+            logger.info(
+                f"[minesweeper] get_user_id via=x-user-id user_id={uid} "
+                f"is_cloud_run={int(is_cloud_run)} trust_x_user_id={int(trust_x_user_id)} allow_anon={int(allow_anon)}"
+            )
             return uid
 
         # 3) Dev fallback (only if explicitly allowed)
         if allow_anon:
+            logger.info(
+                f"[minesweeper] get_user_id via=anon-fallback user_id={default_uid} "
+                f"is_cloud_run={int(is_cloud_run)} trust_x_user_id={int(trust_x_user_id)} allow_anon={int(allow_anon)}"
+            )
             return default_uid
+
+        logger.warning(
+            f"[minesweeper] get_user_id missing user id is_cloud_run={int(is_cloud_run)} "
+            f"trust_x_user_id={int(trust_x_user_id)} allow_anon={int(allow_anon)}"
+        )
         raise HTTPException(status_code=401, detail="missing user id")
 
     @app.post(f"{API_BASE}/start")
