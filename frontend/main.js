@@ -1,12 +1,15 @@
 const API_BASE = window.API_BASE || "/api/minesweeper";
 const IMG_BASE = "/assets/tiles";
-let USER_ID = localStorage.getItem("ms_user");
+const _params = new URLSearchParams(window.location.search);
+const EXTERNAL_USER_ID = _params.get("x-user-id");
+const EXTERNAL_USER_NAME = _params.get("x-user-name");
+let USER_ID = EXTERNAL_USER_ID || localStorage.getItem("ms_user");
 if (!USER_ID) {
   const rnd = Math.random().toString(36).slice(2);
   const ts = Date.now().toString(36);
   USER_ID = `u_${ts}_${rnd}`;
-  localStorage.setItem("ms_user", USER_ID);
 }
+localStorage.setItem("ms_user", USER_ID);
 
 const el = (id) => document.getElementById(id);
 const boardEl = el("board");

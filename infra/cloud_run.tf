@@ -39,6 +39,11 @@ resource "google_cloud_run_service" "minesweeper" {
 
         env {
           name  = "ALLOW_ANON"
+          value = "0"
+        }
+
+        env {
+          name  = "TRUST_X_USER_ID"
           value = "1"
         }
       }
