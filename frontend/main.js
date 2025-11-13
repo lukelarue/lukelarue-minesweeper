@@ -22,7 +22,29 @@ const startBtn = el("start-game");
 const abortBtn = el("abort-game");
 const resultBanner = el("result-banner");
 const continueBtn = el("continue-game");
+const loadingEl = el("loading");
 const MAX_DIM = 40;
+
+let pendingRequests = 0;
+
+function setLoadingVisible(show) {
+  if (!loadingEl) return;
+  if (show) {
+    loadingEl.classList.remove("hidden");
+  } else {
+    loadingEl.classList.add("hidden");
+  }
+}
+
+function beginRequest() {
+  pendingRequests++;
+  setLoadingVisible(true);
+}
+
+function endRequest() {
+  pendingRequests = Math.max(0, pendingRequests - 1);
+  if (pendingRequests === 0) setLoadingVisible(false);
+}
 
 function validateDims() {
   const w = parseInt(widthInput.value, 10) || 0;
@@ -36,20 +58,25 @@ function validateDims() {
   }
 }
 
-async function api(path, method = "GET", body) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "X-User-Id": USER_ID,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!res.ok) {
-    const txt = await res.text();
-    throw new Error(`${res.status}: ${txt}`);
+async function api(path, method = "GET", body, showLoading = false) {
+  if (showLoading) beginRequest();
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Id": USER_ID,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`${res.status}: ${txt}`);
+    }
+    return res.json();
+  } finally {
+    if (showLoading) endRequest();
   }
-  return res.json();
 }
 
 function render(data) {
@@ -147,7 +174,7 @@ function render(data) {
 
 async function load() {
   try {
-    const s = await api("/state");
+    const s = await api("/state", "GET", undefined, true);
     render(s);
   } catch (e) {
     if (String(e).startsWith("Error: 404")) {
@@ -167,13 +194,13 @@ async function startNew() {
     return;
   }
   try {
-    const s = await api("/start", "POST", { board_width: w, board_height: h, num_mines: m });
+    const s = await api("/start", "POST", { board_width: w, board_height: h, num_mines: m }, true);
     render(s);
     setOverlayVisible(false);
     overlayError.textContent = "";
   } catch (e) {
     if (String(e).startsWith("Error: 409")) {
-      const s = await api("/state");
+      const s = await api("/state", "GET", undefined, true);
       render(s);
       setOverlayVisible(false);
       overlayError.textContent = "";
