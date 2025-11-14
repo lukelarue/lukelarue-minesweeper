@@ -55,10 +55,53 @@ class InMemoryPersistence:
     def __init__(self) -> None:
         self.games: Dict[str, Dict[str, Any]] = {}
         self.moves: Dict[str, list[Dict[str, Any]]] = {}
+        self.stats_totals: Dict[str, Dict[str, Any]] = {}
+        self.stats_by_option: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
     def _ensure_user(self, user_id: str) -> None:
         if user_id not in self.moves:
             self.moves[user_id] = []
+
+    def _stats_key(self, width: int, height: int, num_mines: int) -> str:
+        return f"{width}x{height}x{num_mines}"
+
+    def _ensure_stats(self, user_id: str) -> None:
+        if user_id not in self.stats_totals:
+            self.stats_totals[user_id] = {"played": 0, "wins": 0, "losses": 0, "aborts": 0}
+        if user_id not in self.stats_by_option:
+            self.stats_by_option[user_id] = {}
+
+    def _update_stats(self, user_id: str, game: Dict[str, Any], outcome: str) -> None:
+        width = int(game["board_width"])
+        height = int(game["board_height"])
+        num_mines = int(game["num_mines"])
+        key = self._stats_key(width, height, num_mines)
+        self._ensure_stats(user_id)
+        totals = self.stats_totals[user_id]
+        options = self.stats_by_option[user_id]
+        option = options.get(key)
+        if option is None:
+            option = {
+                "board_width": width,
+                "board_height": height,
+                "num_mines": num_mines,
+                "played": 0,
+                "wins": 0,
+                "losses": 0,
+                "aborts": 0,
+            }
+            options[key] = option
+        totals["played"] = int(totals.get("played", 0)) + 1
+        option["played"] = int(option.get("played", 0)) + 1
+        if outcome == "win":
+            totals["wins"] = int(totals.get("wins", 0)) + 1
+            option["wins"] = int(option.get("wins", 0)) + 1
+        elif outcome == "loss":
+            totals["losses"] = int(totals.get("losses", 0)) + 1
+            option["losses"] = int(option.get("losses", 0)) + 1
+        elif outcome == "abort":
+            totals["aborts"] = int(totals.get("aborts", 0)) + 1
+            option["aborts"] = int(option.get("aborts", 0)) + 1
 
     def get_game(self, user_id: str) -> Optional[Dict[str, Any]]:
         return self.games.get(user_id)
@@ -142,11 +185,16 @@ class InMemoryPersistence:
         game["updated_at"] = now
         if game.get("first_reveal_at") is None and result.get("cleared_cells", 0) > 0:
             game["first_reveal_at"] = now
+        finishing_now = False
         if new_state.status in ("won", "lost") and game.get("finished_at") is None:
+            finishing_now = True
             game["finished_at"] = now
             if game.get("first_reveal_at"):
                 game["result_time_ms"] = int((now - game["first_reveal_at"]).total_seconds() * 1000)
             game["end_result"] = "win" if new_state.status == "won" else "lose"
+        if finishing_now:
+            outcome = "win" if new_state.status == "won" else "loss"
+            self._update_stats(user_id, game, outcome)
 
         last_ts = self.moves[user_id][-1]["timestamp"] if self.moves.get(user_id) else game["created_at"]
         move = {
@@ -232,9 +280,12 @@ class InMemoryPersistence:
         now = _now()
         game["status"] = "abandoned"
         game["updated_at"] = now
-        if not game.get("finished_at"):
+        finishing_now = not game.get("finished_at")
+        if finishing_now:
             game["finished_at"] = now
         game["end_result"] = "abort"
+        if finishing_now:
+            self._update_stats(user_id, game, "abort")
         last_ts = self.moves[user_id][-1]["timestamp"] if self.moves.get(user_id) else game["created_at"]
         move = {
             "seq": (game.get("moves_count", 0) + 1),
@@ -252,6 +303,49 @@ class InMemoryPersistence:
         }
         self._append_move(user_id, game, move)
         return game, move
+
+    def get_stats(self, user_id: str) -> Dict[str, Any]:
+        totals = self.stats_totals.get(user_id)
+        if totals is None:
+            totals = {"played": 0, "wins": 0, "losses": 0, "aborts": 0}
+        wins = int(totals.get("wins", 0) or 0)
+        losses = int(totals.get("losses", 0) or 0)
+        aborts = int(totals.get("aborts", 0) or 0)
+        played = int(totals.get("played", 0) or 0)
+        denom = wins + losses + aborts
+        win_pct = float(wins) / denom if denom > 0 else 0.0
+        by_option_map = self.stats_by_option.get(user_id) or {}
+        by_option_list = []
+        for key, opt in by_option_map.items():
+            owins = int(opt.get("wins", 0) or 0)
+            olosses = int(opt.get("losses", 0) or 0)
+            oaborts = int(opt.get("aborts", 0) or 0)
+            oplayed = int(opt.get("played", 0) or 0)
+            o_denom = owins + olosses + oaborts
+            o_win_pct = float(owins) / o_denom if o_denom > 0 else 0.0
+            by_option_list.append(
+                {
+                    "key": key,
+                    "board_width": int(opt.get("board_width", 0) or 0),
+                    "board_height": int(opt.get("board_height", 0) or 0),
+                    "num_mines": int(opt.get("num_mines", 0) or 0),
+                    "played": oplayed,
+                    "wins": owins,
+                    "losses": olosses,
+                    "aborts": oaborts,
+                    "winPct": o_win_pct,
+                }
+            )
+        return {
+            "totals": {
+                "played": played,
+                "wins": wins,
+                "losses": losses,
+                "aborts": aborts,
+                "winPct": win_pct,
+            },
+            "byOption": by_option_list,
+        }
 
     def to_client(self, game: Dict[str, Any]) -> Dict[str, Any]:
         s = _to_state(game)
@@ -288,6 +382,48 @@ class FirestorePersistence:
 
     def _moves_ref(self, user_id: str):
         return self._game_ref(user_id).collection("moves")
+
+    def _stats_ref(self, user_id: str):
+        return self.client.collection("minesweeperStats").document(user_id)
+
+    def _stats_option_ref(self, user_id: str, key: str):
+        return self._stats_ref(user_id).collection("byOption").document(key)
+
+    def _stats_key(self, width: int, height: int, num_mines: int) -> str:
+        return f"{width}x{height}x{num_mines}"
+
+    def _update_stats_tx(self, tx, user_id: str, game: Dict[str, Any], outcome: str, now: datetime) -> None:
+        width = int(game.get("board_width"))
+        height = int(game.get("board_height"))
+        num_mines = int(game.get("num_mines"))
+        key = self._stats_key(width, height, num_mines)
+        sref = self._stats_ref(user_id)
+        totals_update: Dict[str, Any] = {
+            "played": firestore.Increment(1),
+            "updated_at": now,
+        }
+        if outcome == "win":
+            totals_update["wins"] = firestore.Increment(1)
+        elif outcome == "loss":
+            totals_update["losses"] = firestore.Increment(1)
+        elif outcome == "abort":
+            totals_update["aborts"] = firestore.Increment(1)
+        tx.set(sref, totals_update, merge=True)
+        oref = self._stats_option_ref(user_id, key)
+        option_update: Dict[str, Any] = {
+            "board_width": width,
+            "board_height": height,
+            "num_mines": num_mines,
+            "played": firestore.Increment(1),
+            "updated_at": now,
+        }
+        if outcome == "win":
+            option_update["wins"] = firestore.Increment(1)
+        elif outcome == "loss":
+            option_update["losses"] = firestore.Increment(1)
+        elif outcome == "abort":
+            option_update["aborts"] = firestore.Increment(1)
+        tx.set(oref, option_update, merge=True)
 
     def get_game(self, user_id: str) -> Optional[Dict[str, Any]]:
         doc = self._game_ref(user_id).get()
@@ -413,7 +549,9 @@ class FirestorePersistence:
             }
             if game.get("first_reveal_at") is None and result.get("cleared_cells", 0) > 0:
                 update["first_reveal_at"] = now
+            finishing_now = False
             if new_state.status in ("won", "lost") and not game.get("finished_at"):
+                finishing_now = True
                 update["finished_at"] = now
                 if game.get("first_reveal_at"):
                     update["result_time_ms"] = int((now - game["first_reveal_at"]).total_seconds() * 1000)
@@ -446,6 +584,9 @@ class FirestorePersistence:
             merged = dict(game)
             merged.update(update)
             merged["moves_count"] = new_state.moves_count
+            if finishing_now:
+                outcome = "win" if new_state.status == "won" else "loss"
+                self._update_stats_tx(tx, user_id, merged, outcome, now)
             return merged, move
 
         return _tx(self.client.transaction())
@@ -513,7 +654,8 @@ class FirestorePersistence:
                 "status": "abandoned",
                 "updated_at": now,
             }
-            if not game.get("finished_at"):
+            finishing_now = not game.get("finished_at")
+            if finishing_now:
                 update["finished_at"] = now
             update["end_result"] = "abort"
             tx.update(gref, update)
@@ -537,9 +679,62 @@ class FirestorePersistence:
             merged = dict(game)
             merged.update(update)
             merged["moves_count"] = moves_count
+            if finishing_now:
+                self._update_stats_tx(tx, user_id, merged, "abort", now)
             return merged, move
 
         return _tx(self.client.transaction())
+
+    def get_stats(self, user_id: str) -> Dict[str, Any]:
+        sref = self._stats_ref(user_id)
+        snap = sref.get()
+        if snap.exists:
+            data = snap.to_dict() or {}
+        else:
+            data = {}
+        played = int(data.get("played", 0) or 0)
+        wins = int(data.get("wins", 0) or 0)
+        losses = int(data.get("losses", 0) or 0)
+        aborts = int(data.get("aborts", 0) or 0)
+        denom = wins + losses + aborts
+        win_pct = float(wins) / denom if denom > 0 else 0.0
+        by_option_list: list[Dict[str, Any]] = []
+        options_coll = sref.collection("byOption")
+        for opt_snap in options_coll.stream():
+            opt = opt_snap.to_dict() or {}
+            width = int(opt.get("board_width", 0) or 0)
+            height = int(opt.get("board_height", 0) or 0)
+            num_mines = int(opt.get("num_mines", 0) or 0)
+            o_played = int(opt.get("played", 0) or 0)
+            o_wins = int(opt.get("wins", 0) or 0)
+            o_losses = int(opt.get("losses", 0) or 0)
+            o_aborts = int(opt.get("aborts", 0) or 0)
+            o_denom = o_wins + o_losses + o_aborts
+            o_win_pct = float(o_wins) / o_denom if o_denom > 0 else 0.0
+            key = self._stats_key(width, height, num_mines)
+            by_option_list.append(
+                {
+                    "key": key,
+                    "board_width": width,
+                    "board_height": height,
+                    "num_mines": num_mines,
+                    "played": o_played,
+                    "wins": o_wins,
+                    "losses": o_losses,
+                    "aborts": o_aborts,
+                    "winPct": o_win_pct,
+                }
+            )
+        return {
+            "totals": {
+                "played": played,
+                "wins": wins,
+                "losses": losses,
+                "aborts": aborts,
+                "winPct": win_pct,
+            },
+            "byOption": by_option_list,
+        }
 
     def to_client(self, game: Dict[str, Any]) -> Dict[str, Any]:
         s = _to_state(game)

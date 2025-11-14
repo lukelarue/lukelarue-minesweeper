@@ -194,6 +194,11 @@ def create_app(persistence=None) -> FastAPI:
         game, _move = app.state.persistence.abandon(user_id)
         return app.state.persistence.to_client(game) | {"game_id": user_id}
 
+    @app.get(f"{API_BASE}/stats")
+    def get_stats(user_id: str = Depends(get_user_id)):
+        stats = app.state.persistence.get_stats(user_id)
+        return stats
+
     # Static frontend
     frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
     if frontend_dir.exists():
