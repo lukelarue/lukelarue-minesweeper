@@ -25,6 +25,12 @@
   <div id="overlay" class="overlay hidden">
     <div class="overlay-card">
       <h2>Start a New Game</h2>
+      <div class="preset-modes">
+        <button type="button" class="preset-btn" data-width="8" data-height="8" data-mines="10">Beginner</button>
+        <button type="button" class="preset-btn" data-width="16" data-height="16" data-mines="40">Intermediate</button>
+        <button type="button" class="preset-btn" data-width="30" data-height="16" data-mines="99">Hard</button>
+        <button type="button" class="preset-btn" data-width="30" data-height="22" data-mines="200">Extreme</button>
+      </div>
       <div class="form">
         <label for="width-input">Width</label>
         <input id="width-input" type="number" min="2" max="40" value="10" />
@@ -32,6 +38,10 @@
         <input id="height-input" type="number" min="2" max="40" value="10" />
         <label for="mines-input">Mines</label>
         <input id="mines-input" type="number" min="1" value="15" />
+        <div id="tracked-indicator" class="tracked-indicator hidden">
+          <span class="trophy-icon">🏆</span>
+          <span>Tracked for leaderboards</span>
+        </div>
         <button id="start-game" class="primary">Start Game</button>
         <div id="overlay-error" class="error"></div>
       </div>
@@ -43,6 +53,10 @@
       <div class="spinner"></div>
       <div class="loading-text">Connecting to Minesweeper...</div>
     </div>
+  </div>
+
+  <div id="toast" class="toast hidden">
+    <span id="toast-message"></span>
   </div>
 
   <script src="/main.js"></script>

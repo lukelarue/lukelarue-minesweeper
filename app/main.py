@@ -2,13 +2,13 @@ import os
 import logging
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
-from minesweeper.persistence import InMemoryPersistence, FirestorePersistence
+from minesweeper.persistence import InMemoryPersistence, FirestorePersistence, TRACKED_MODES
 
 load_dotenv(dotenv_path=Path('.env.local'))
 
@@ -198,6 +198,41 @@ def create_app(persistence=None) -> FastAPI:
     def get_stats(user_id: str = Depends(get_user_id)):
         stats = app.state.persistence.get_stats(user_id)
         return stats
+
+    @app.get(f"{API_BASE}/leaderboard")
+    def get_leaderboard(
+        mode: str = Query(..., description="Game mode: beginner, intermediate, hard, extreme"),
+        limit: int = Query(10, ge=1, le=100, description="Number of entries to return"),
+    ):
+        result = app.state.persistence.get_leaderboard(mode, limit)
+        if result.get("error") == "invalid_mode":
+            raise HTTPException(status_code=400, detail=f"Invalid mode. Valid modes: {', '.join(TRACKED_MODES.keys())}")
+        return result
+
+    @app.get(f"{API_BASE}/leaderboard/modes")
+    def get_leaderboard_modes():
+        """Return all tracked game modes for leaderboards."""
+        modes = []
+        for mode_key, mode_info in TRACKED_MODES.items():
+            modes.append({
+                "key": mode_key,
+                "name": mode_info["name"],
+                "board_width": mode_info["board_width"],
+                "board_height": mode_info["board_height"],
+                "num_mines": mode_info["num_mines"],
+            })
+        return {"modes": modes}
+
+    @app.get(f"{API_BASE}/leaderboard/wins")
+    def get_win_stats_leaderboard(
+        mode: str = Query(..., description="Game mode: beginner, intermediate, hard, extreme"),
+        limit: int = Query(10, ge=1, le=100, description="Number of entries to return"),
+    ):
+        """Get win stats leaderboard sorted by most wins."""
+        result = app.state.persistence.get_win_stats_leaderboard(mode, limit)
+        if result.get("error") == "invalid_mode":
+            raise HTTPException(status_code=400, detail=f"Invalid mode. Valid modes: {', '.join(TRACKED_MODES.keys())}")
+        return result
 
     # Static frontend
     frontend_dir = Path(__file__).resolve().parent.parent / "frontend"

@@ -206,7 +206,10 @@ def to_client_view(s: GameState) -> List[List[str]]:
         for c in range(s.width):
             i = index(r, c, s.width)
             ch = s.mine_layout[i]
-            if s.status != "active" and ch == "M":
+            # On loss, reveal all tiles (show actual values, not flags)
+            if s.status == "lost":
+                cell = ch
+            elif s.status != "active" and ch == "M":
                 cell = "M"
             elif s.revealed_mask[i] == "1":
                 cell = ch
